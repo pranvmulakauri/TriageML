@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+triageml_conda_env/
+triageml_env/
+.vscode/
+.idea/
