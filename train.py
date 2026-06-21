@@ -13,6 +13,7 @@ import joblib
 def preprocess_data(df):
     df.info(True)  # Check data types and missing values
 
+    print("initial data preprocessing...")
     print(df.describe(include='all'))  # Check for outliers in age
     
     # age and resting_blood_pressure should be > 0. Let's check how many rows violate this and if other columns look suspicious in those rows.
@@ -28,6 +29,16 @@ def preprocess_data(df):
     df['age'] = df['age'].where(df['age'] > 0, other=np.nan) # Replace non-positive ages with NaN
     
     df['resting_blood_pressure'] = df['resting_blood_pressure'].where(df['resting_blood_pressure'] > 0, other=np.nan)  # Replace non-positive blood pressure with NaN
+   
+   # Add to preprocess_data
+    q1 = df['cholesterol'].quantile(0.25)
+    q2 = df['cholesterol'].quantile(0.75)
+    iqr = q2 - q1
+    df['cholesterol'] = df['cholesterol'].where(df['cholesterol'] <= q2 + 3 * iqr, other=np.nan)  # Cap cholesterol at Q3 + 3*IQR to reduce outliers)
+    
+    print("Data after cleaning:")
+    print(df.describe(include='all'))  # Check for outliers in age and cholesterol after cleaning
+
     return df
 
 def check_missing_values(df):
@@ -61,8 +72,8 @@ def main():
     )
     
     # 2. Define Preprocessing Steps
-    numeric_features = ['age', 'resting_blood_pressure', 'cholesterol', 'max_heart_rate', 'num_major_vessels']
-    categorical_features = ['chest_pain_type']
+    numeric_features = ['age', 'resting_blood_pressure', 'cholesterol', 'max_heart_rate']
+    categorical_features = ['chest_pain_type',  'num_major_vessels', 'exercise_induced_angina']
 
     num_steps = []
 
@@ -86,7 +97,7 @@ def main():
         transformers=[
             ('num', numeric_transformer, numeric_features),
             ('cat', categorical_transformer, categorical_features)
-        ], remainder='passthrough') 
+        ], remainder='drop') 
     
     # We calculate scale_pos_weight due to imbalanced classes (more low risk than high risk patients).
     # This helps XGBoost focus more on the minority class.
@@ -100,7 +111,7 @@ def main():
             scale_pos_weight=scale_pos_weight, 
             random_state=42,
             n_estimators=100,
-            eval_metric='logloss' 
+            eval_metric='aucpr' 
         ))
     ])
     
